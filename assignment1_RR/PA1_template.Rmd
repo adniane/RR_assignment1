@@ -1,0 +1,152 @@
+#REPRODUCIBLE RESEARCH 
+
+=====================================================================
+
+**ASSIGNMENT 1**
+
+**AUTHOR**: *Niane A. Demba*
+
+------------------------
+
+## Introduction
+It is now possible to collect a large amount of data about personal movement using activity monitoring devices such as a Fitbit, Nike Fuelband, or Jawbone Up. These type of devices are part of the “quantified self” movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. But these data remain under-utilized both because the raw data are hard to obtain and there is a lack of statistical methods and software for processing and interpreting the data.
+
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+
+## Data
+The data for this assignment can be downloaded from the course web site:
+
+Dataset: Activity monitoring data [52K]
+The variables included in this dataset are:
+
+steps: Number of steps taking in a 5-minute interval (missing values are coded as NA)
+
+date: The date on which the measurement was taken in YYYY-MM-DD format
+
+interval: Identifier for the 5-minute interval in which measurement was taken
+
+The dataset is stored in a comma-separated-value (CSV) file and there are a total of 17,568 observations in this dataset.
+
+## Assignment
+
+### Loading and preprocessing the data
+
+```{r loding data, echo=TRUE}
+# Load data
+data <- read.csv("activity.csv", head = T)
+# Process data to remove missing data
+activity <- data[complete.cases(data), ]
+```
+
+
+###What is mean total number of steps taken per day?
+
+```{r compute mean and median, echo=TRUE}
+# Make a histogram of the total number of steps taken each day
+hist(activity$steps, col = "blue", 
+     xlab = "steps taken each day", main="Number of steps taken each day")
+
+# Calculate and report the mean and median total number of steps taken per day
+Mean_steps <- mean(activity$steps)
+Median_steps <- median(sort(activity$steps))
+paste("Mean and Meadian total number of steps taken per day are : ",round(Mean_steps, digits=2),"and", Median_steps)
+```
+
+###What is the average daily activity pattern?
+
+```{r time series plot, echo=TRUE}
+# Compute the average number of steps taken, averaged across all days (y-axis)
+average_steps = vector("numeric")
+for (i in 1:nrow(activity)){
+    average_steps[i] <- mean(activity[activity$interval==activity$interval[i],1])
+}
+
+# Make a time series plot
+plot(activity$interval, average_steps, type = "l", col = "Red", lwd = 2, xlab = "5-minute interval", ylab = "Number of steps taken", main = "time series plot")
+
+
+# 5-minute interval that contains the maximum number of steps? 
+max_steps <- max(as.numeric(average_steps))
+interval_max_steps = 0
+for (i in 1:nrow(activity)){
+    if(average_steps[i] == max_steps){
+        interval_max_steps = activity$interval[i] 
+    }
+}
+paste("The 5-minute interval that contains the maximum number of steps is : ",interval_max_steps)
+abline(v = interval_max_steps, lty=2,lwd=2, col="green")
+```
+
+
+###Imputing missing values
+
+```{r missing values, echo=TRUE}
+# Calculate the total number of missing values in the dataset 
+total_number_na <- nrow(data) - nrow(activity)
+# Report the total number of missing values in the dataset 
+paste("the total number of rows with NAs is : ",total_number_na)
+#Strategy for filling in all of the missing values in the dataset. 
+filled_data <- data
+for (i in 1:nrow(filled_data)){
+    if(is.na(filled_data$steps[i])){
+        filled_data$steps[i] <- median(filled_data[filled_data$interval==filled_data$interval[i],1],na.rm = T)  
+    }
+} 
+# 1. Make histogram of filled data
+hist(filled_data$steps, col = "magenta", 
+     xlab = "steps taken each day", main="Filled data total number of steps taken each day")
+# Compute  mean and median of filled data
+complete_data <- filled_data$steps
+mean_filled_data <- mean(filled_data$steps,na.rm = T)
+median_filled_data <- median(sort(filled_data$steps))
+#Do these values differ from the estimates from the first part of the assignment? 
+Original_data <- c(Mean_steps, Median_steps)
+Filled_data = c(mean_filled_data, median_filled_data)
+Table = data.frame(rbind(Original_data,Filled_data))
+names(Table) <- c("Mean","Median")
+paste("Mean of Filled values ", round(mean_filled_data, digits=2), "differ from the estimates from the first part of the assignment :", round(Mean_steps, digits=2))
+```
+
+The impact of imputing missing data on the estimates of the total daily number of steps is to reduce the mean as shown in the table below :
+
+```{r table, echo=TRUE, results = "asis"}
+library(xtable)
+xt <- xtable(Table)
+print(xt, type = "html")
+```
+
+###Are there differences in activity patterns between weekdays and weekends?
+
+```{r patterns, echo=TRUE}
+# #Convert  date to weekdays
+ filled_data$date <- weekdays(as.Date(filled_data$date))
+
+#Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
+ days <- vector()
+for (i in 1:nrow(filled_data)){
+    if(filled_data$date[i] == "Saturday" | filled_data$date[i] == "Sunday"){
+        days[i] <- "weekend"
+    }else{
+        days[i] <- "weekday"
+    }
+}
+
+#Adding the new variable days to the dataset
+filled_data[,4] <- days 
+names(filled_data) = c("steps","date","interval","days")
+
+#Aggregate data
+df <- aggregate(filled_data$steps ~ filled_data$interval + filled_data$days , data = filled_data, mean)
+
+#Making new dataset for plots
+dataset <- data.frame(interval=df[,1],steps=df[,3],days=df[,2])
+
+#Panel plot containing a time series plot
+library(lattice)
+#Convert days to a factor variable
+dataset <- transform(dataset, days = factor(days))  
+#xyplot(steps ~ interval | days, data = dataset, layout = c(2, 1))
+xyplot(steps ~ interval | days, data = dataset,type="l",main="Panel plot containing a time series plot",xlab="interval",ylab="Number of steps",layout = c(1, 2))
+```
+
+
